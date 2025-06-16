@@ -1,0 +1,48 @@
+name: UniCredit HICP Scraper
+
+on:
+  schedule:
+    - cron: '0 6 * * 1-5'  # Tous les jours ouvrés à 6h UTC
+  workflow_dispatch:
+
+jobs:
+  run-scraper:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install beautifulsoup4 selenium
+
+      - name: Run UniCredit scraper
+        run: |
+          python hicp_scraper.py
+
+      - name: Debug hicp_history.txt
+        run: |
+          echo "--- Contenu de hicp_history.txt ---"
+          cat hicp_history.txt || echo "⚠️ hicp_history.txt est vide"
+
+      - name: Commit and push
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}
+
+          if [ -f hicp_history.txt ]; then
+            git add hicp_history.txt
+            git diff --cached --quiet || git commit -m "Update hicp_history.txt [auto commit]"
+            git push --force
+          else
+            echo "Aucun fichier à committer."
+          fi
